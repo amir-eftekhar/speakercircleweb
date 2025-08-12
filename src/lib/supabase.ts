@@ -80,6 +80,8 @@ export type Database = {
           hero_text: string
           footer_text: string
           contact_email: string
+          payment_script_url: string | null
+          admin_password_hash: string | null
           updated_at: string
         }
         Insert: {
@@ -89,6 +91,8 @@ export type Database = {
           hero_text: string
           footer_text: string
           contact_email: string
+          payment_script_url?: string | null
+          admin_password_hash?: string | null
           updated_at?: string
         }
         Update: {
@@ -98,6 +102,8 @@ export type Database = {
           hero_text?: string
           footer_text?: string
           contact_email?: string
+          payment_script_url?: string | null
+          admin_password_hash?: string | null
           updated_at?: string
         }
       }

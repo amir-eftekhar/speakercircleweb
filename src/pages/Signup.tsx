@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Phone, Eye, EyeOff, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Mail, Lock, User, Phone, Eye, EyeOff, Plus, Trash2, UserPlus, CheckCircle, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface StudentInfo {
@@ -24,6 +24,7 @@ const Signup: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showEmailVerificationBanner, setShowEmailVerificationBanner] = useState(false);
 
   const { signup } = useAuth();
   const navigate = useNavigate();
@@ -89,7 +90,8 @@ const Signup: React.FC = () => {
     });
 
     if (result.success) {
-      navigate('/');
+      setShowEmailVerificationBanner(true);
+      // Don't navigate immediately, show verification banner first
     } else {
       setError(result.error || 'Signup failed');
     }
@@ -100,6 +102,46 @@ const Signup: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
+        
+        {/* Email Verification Banner */}
+        {showEmailVerificationBanner && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <CheckCircle className="h-6 w-6 text-green-600 mr-3 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-green-900 mb-2">
+                  Account Created Successfully!
+                </h3>
+                <p className="text-green-700 mb-3">
+                  Please check your email <strong>({formData.email})</strong> for a verification link to activate your account.
+                </p>
+                <p className="text-sm text-green-600 mb-4">
+                  You won't be able to log in until you verify your email address. Check your spam folder if you don't see the email within a few minutes.
+                </p>
+                <div className="flex space-x-3">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Go to Login
+                  </Link>
+                  <button
+                    onClick={() => navigate('/')}
+                    className="inline-flex items-center px-4 py-2 bg-white text-green-600 text-sm font-medium rounded-lg border border-green-300 hover:bg-green-50 transition-colors"
+                  >
+                    Back to Home
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEmailVerificationBanner(false)}
+                className="text-green-600 hover:text-green-800 ml-2"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
         <div className="text-center mb-8">
           <img
             src="https://i.imgur.com/Uqxojaz.png"

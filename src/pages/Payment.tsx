@@ -1,10 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { CreditCard, User, DollarSign, Info, CheckCircle } from 'lucide-react';
 
 const Payment: React.FC = () => {
   const { user } = useAuth();
-  const [showStripeForm, setShowStripeForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [siteSettings, setSiteSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchSiteSettings();
+  }, []);
+
+  const fetchSiteSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('*')
+        .single();
+      
+      if (error) {
+        console.error('Error fetching site settings:', error);
+        return;
+      }
+      
+      setSiteSettings(data);
+    } catch (error) {
+      console.error('Failed to fetch site settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPaymentScript = () => {
+    if (!siteSettings?.payment_script_url) {
+      alert('Payment script URL not configured. Please contact administrator.');
+      return;
+    }
+
+    // Remove existing payment script if any
+    const existingScript = document.querySelector('script[data-payment-script]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    // Load the payment script
+    const script = document.createElement('script');
+    script.src = siteSettings.payment_script_url;
+    script.setAttribute('data-payment-script', 'true');
+    script.async = true;
+    script.onload = () => {
+      setShowPaymentForm(true);
+    };
+    script.onerror = () => {
+      alert('Failed to load payment script. Please try again or contact support.');
+    };
+    
+    document.head.appendChild(script);
+  };
 
   if (!user) {
     return (
@@ -12,6 +66,17 @@ const Payment: React.FC = () => {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Please log in to access payments</h2>
           <p className="text-gray-600">You need to be logged in as a parent to make payments.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading payment configuration...</p>
         </div>
       </div>
     );
@@ -66,14 +131,14 @@ const Payment: React.FC = () => {
 
             {/* Payment Form */}
             <div className="lg:col-span-2">
-              {!showStripeForm ? (
+              {!showPaymentForm ? (
                 <div className="bg-white rounded-xl shadow-lg p-8">
                   <div className="text-center mb-8">
                     <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                       <CreditCard className="h-8 w-8 text-primary-600" />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Setup</h2>
-                    <p className="text-gray-600">Simple payment form for Speakers Circle programs</p>
+                    <p className="text-gray-600">Secure payment for Speakers Circle programs</p>
                   </div>
 
                   <form className="space-y-6">
@@ -122,16 +187,19 @@ const Payment: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Payment Info */}
-                    <div className="bg-primary-50 p-4 rounded-lg">
+                    {/* Payment Script Status */}
+                    <div className={`p-4 rounded-lg ${siteSettings?.payment_script_url ? 'bg-green-50' : 'bg-yellow-50'}`}>
                       <div className="flex items-start">
-                        <Info className="h-5 w-5 text-primary-600 mr-3 mt-0.5" />
+                        <Info className={`h-5 w-5 mr-3 mt-0.5 ${siteSettings?.payment_script_url ? 'text-green-600' : 'text-yellow-600'}`} />
                         <div>
-                          <h3 className="text-sm font-medium text-primary-900 mb-1">
-                            Development Mode
+                          <h3 className={`text-sm font-medium mb-1 ${siteSettings?.payment_script_url ? 'text-green-900' : 'text-yellow-900'}`}>
+                            {siteSettings?.payment_script_url ? 'Payment System Ready' : 'Payment Configuration Required'}
                           </h3>
-                          <p className="text-sm text-primary-700">
-                            This is a demo payment form. In production, this will integrate with Stripe for secure payment processing.
+                          <p className={`text-sm ${siteSettings?.payment_script_url ? 'text-green-700' : 'text-yellow-700'}`}>
+                            {siteSettings?.payment_script_url 
+                              ? 'Secure payment processing is configured and ready to use.'
+                              : 'Payment script URL needs to be configured by the administrator.'
+                            }
                           </p>
                         </div>
                       </div>
@@ -140,26 +208,47 @@ const Payment: React.FC = () => {
                     {/* Submit Button */}
                     <button
                       type="button"
-                      onClick={() => setShowStripeForm(true)}
-                      className="w-full py-4 px-6 rounded-lg text-lg font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors duration-200 flex items-center justify-center"
+                      onClick={loadPaymentScript}
+                      disabled={!siteSettings?.payment_script_url}
+                      className={`w-full py-4 px-6 rounded-lg text-lg font-semibold transition-colors duration-200 flex items-center justify-center ${
+                        siteSettings?.payment_script_url
+                          ? 'bg-primary-600 text-white hover:bg-primary-700'
+                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      }`}
                     >
                       <CreditCard className="h-6 w-6 mr-3" />
-                      Continue to Payment
+                      {siteSettings?.payment_script_url ? 'Continue to Payment' : 'Payment Unavailable'}
                     </button>
                   </form>
                 </div>
               ) : (
                 <div className="bg-white rounded-xl shadow-lg p-8">
-                  <div className="text-center">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Stripe Integration Coming Soon</h3>
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Payment Processor Loaded</h3>
                     <p className="text-gray-600 mb-6">
-                      The embedded Stripe checkout will be available once the backend API is set up with proper PaymentIntent creation.
+                      The payment script has been loaded successfully. You can now proceed with secure payment processing.
                     </p>
+                  </div>
+
+                  {/* Payment Form Container */}
+                  <div id="payment-form-container" className="min-h-[400px] p-6 border-2 border-dashed border-gray-300 rounded-lg">
+                    <div className="text-center">
+                      <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">
+                        Payment form will be rendered here by the loaded payment script.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Integrated with: {siteSettings?.payment_script_url}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-center">
                     <button
-                      onClick={() => setShowStripeForm(false)}
+                      onClick={() => setShowPaymentForm(false)}
                       className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
                     >
-                      Back to Payment Form
+                      Back to Payment Setup
                     </button>
                   </div>
                 </div>

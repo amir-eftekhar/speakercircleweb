@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { verifyPassword, hashPassword, DEFAULT_ADMIN_PASSWORD } from '../lib/auth-utils';
 
 interface AdminAuthProps {
   children: React.ReactNode;
@@ -10,24 +12,105 @@ const AdminAuth: React.FC<AdminAuthProps> = ({ children }) => {
   const [passcode, setPasscode] = useState('');
   const [showPasscode, setShowPasscode] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Check if already authenticated
-    const authStatus = localStorage.getItem('sc_admin_auth');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-    }
+    initializeAdminAuth();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const initializeAdminAuth = async () => {
+    try {
+      // Check if already authenticated
+      const authStatus = localStorage.getItem('sc_admin_auth');
+      if (authStatus === 'true') {
+        setIsAuthenticated(true);
+      }
+
+      // Initialize admin password if not exists
+      await ensureAdminPasswordExists();
+    } catch (error) {
+      console.error('Error initializing admin auth:', error);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  const ensureAdminPasswordExists = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('admin_password_hash')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking admin password:', error);
+        return;
+      }
+
+      // If no admin password is set, set the default one
+      if (!data?.admin_password_hash) {
+        const defaultHash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
+        
+        if (data) {
+          // Update existing record
+          await supabase
+            .from('site_settings')
+            .update({ admin_password_hash: defaultHash })
+            .eq('id', data.id);
+        } else {
+          // Create new record with default values
+          await supabase
+            .from('site_settings')
+            .insert([{
+              slogan: 'Your Voice is your Superpower',
+              hero_text: 'Empowering youth with the confidence to speak, the clarity to lead, and the courage to inspire.',
+              footer_text: '© 2025 SpeakersCircle. All rights reserved.',
+              contact_email: 'shalini@speakerscircle.com',
+              admin_password_hash: defaultHash
+            }]);
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring admin password exists:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === 'SCAdmin2025') {
-      setIsAuthenticated(true);
-      localStorage.setItem('sc_admin_auth', 'true');
-      setError('');
-    } else {
-      setError('Invalid passcode. Please try again.');
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('admin_password_hash')
+        .single();
+
+      if (error) {
+        throw new Error('Failed to verify credentials');
+      }
+
+      if (!data?.admin_password_hash) {
+        throw new Error('Admin authentication not configured');
+      }
+
+      const isValid = await verifyPassword(passcode, data.admin_password_hash);
+      
+      if (isValid) {
+        setIsAuthenticated(true);
+        localStorage.setItem('sc_admin_auth', 'true');
+        setError('');
+      } else {
+        setError('Invalid passcode. Please try again.');
+        setPasscode('');
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      setError('Authentication failed. Please try again.');
       setPasscode('');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,6 +119,17 @@ const AdminAuth: React.FC<AdminAuthProps> = ({ children }) => {
     localStorage.removeItem('sc_admin_auth');
     setPasscode('');
   };
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Initializing admin authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -79,9 +173,21 @@ const AdminAuth: React.FC<AdminAuthProps> = ({ children }) => {
 
             <button
               type="submit"
-              className="w-full bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
+              disabled={loading}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 ${
+                loading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-primary-600 hover:bg-primary-700'
+              } text-white`}
             >
-              Access Admin Panel
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Verifying...
+                </div>
+              ) : (
+                'Access Admin Panel'
+              )}
             </button>
           </form>
 
