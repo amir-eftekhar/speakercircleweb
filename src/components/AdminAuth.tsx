@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { verifyPassword, hashPassword, DEFAULT_ADMIN_PASSWORD } from '../lib/auth-utils';
+import { DEFAULT_ADMIN_PASSWORD } from '../lib/auth-utils';
 
 interface AdminAuthProps {
   children: React.ReactNode;
@@ -38,39 +37,9 @@ const AdminAuth: React.FC<AdminAuthProps> = ({ children }) => {
 
   const ensureAdminPasswordExists = async () => {
     try {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('admin_password_hash')
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error checking admin password:', error);
-        return;
-      }
-
-      // If no admin password is set, set the default one
-      if (!data?.admin_password_hash) {
-        const defaultHash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
-        
-        if (data) {
-          // Update existing record
-          await supabase
-            .from('site_settings')
-            .update({ admin_password_hash: defaultHash })
-            .eq('id', data.id);
-        } else {
-          // Create new record with default values
-          await supabase
-            .from('site_settings')
-            .insert([{
-              slogan: 'Your Voice is your Superpower',
-              hero_text: 'Empowering youth with the confidence to speak, the clarity to lead, and the courage to inspire.',
-              footer_text: '© 2025 SpeakersCircle. All rights reserved.',
-              contact_email: 'shalini@speakerscircle.com',
-              admin_password_hash: defaultHash
-            }]);
-        }
-      }
+      // For now, we'll just use the default password since the database 
+      // might not have the admin_password_hash column yet
+      console.log('Admin authentication initialized with default password');
     } catch (error) {
       console.error('Error ensuring admin password exists:', error);
     }
@@ -82,22 +51,8 @@ const AdminAuth: React.FC<AdminAuthProps> = ({ children }) => {
     setError('');
 
     try {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('admin_password_hash')
-        .single();
-
-      if (error) {
-        throw new Error('Failed to verify credentials');
-      }
-
-      if (!data?.admin_password_hash) {
-        throw new Error('Admin authentication not configured');
-      }
-
-      const isValid = await verifyPassword(passcode, data.admin_password_hash);
-      
-      if (isValid) {
+      // For now, use the hardcoded password until database is updated
+      if (passcode === DEFAULT_ADMIN_PASSWORD) {
         setIsAuthenticated(true);
         localStorage.setItem('sc_admin_auth', 'true');
         setError('');

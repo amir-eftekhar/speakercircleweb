@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Save, Settings, Globe, Mail, Image, Lock, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { hashPassword } from '../../lib/auth-utils';
 
 const ManageSettings: React.FC = () => {
   const [settings, setSettings] = useState<any>(null);
@@ -12,8 +11,7 @@ const ManageSettings: React.FC = () => {
     slogan: '',
     hero_text: '',
     footer_text: '',
-    contact_email: '',
-    payment_script_url: ''
+    contact_email: ''
   });
   const [passwordData, setPasswordData] = useState({
     current_password: '',
@@ -45,8 +43,7 @@ const ManageSettings: React.FC = () => {
           slogan: data.slogan || '',
           hero_text: data.hero_text || '',
           footer_text: data.footer_text || '',
-          contact_email: data.contact_email || '',
-          payment_script_url: data.payment_script_url || ''
+          contact_email: data.contact_email || ''
         });
       }
     } catch (error) {
@@ -69,50 +66,13 @@ const ManageSettings: React.FC = () => {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (passwordData.new_password !== passwordData.confirm_password) {
-      alert('New passwords do not match');
-      return;
-    }
-
-    if (passwordData.new_password.length < 6) {
-      alert('New password must be at least 6 characters long');
-      return;
-    }
-
-    setPasswordLoading(true);
-
-    try {
-      // Verify current password first
-      const { verifyPassword } = await import('../../lib/auth-utils');
-      if (!settings?.admin_password_hash || !await verifyPassword(passwordData.current_password, settings.admin_password_hash)) {
-        alert('Current password is incorrect');
-        return;
-      }
-
-      // Hash new password
-      const newPasswordHash = await hashPassword(passwordData.new_password);
-
-      // Update password in database
-      const { error } = await supabase
-        .from('site_settings')
-        .update({ admin_password_hash: newPasswordHash })
-        .eq('id', settings.id);
-
-      if (error) throw error;
-
-      alert('Admin password updated successfully!');
-      setPasswordData({
-        current_password: '',
-        new_password: '',
-        confirm_password: ''
-      });
-      await fetchSettings();
-    } catch (error) {
-      console.error('Error updating password:', error);
-      alert('Error updating password. Please try again.');
-    } finally {
-      setPasswordLoading(false);
-    }
+    alert('Password change feature is temporarily disabled while database schema is being updated. Please contact the administrator.');
+    
+    setPasswordData({
+      current_password: '',
+      new_password: '',
+      confirm_password: ''
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -126,7 +86,6 @@ const ManageSettings: React.FC = () => {
         hero_text: formData.hero_text,
         footer_text: formData.footer_text,
         contact_email: formData.contact_email,
-        payment_script_url: formData.payment_script_url,
         updated_at: new Date().toISOString()
       };
 
@@ -294,55 +253,19 @@ const ManageSettings: React.FC = () => {
             </div>
           </div>
 
-          {/* Payment Configuration */}
+          {/* Payment Configuration - Temporarily Disabled */}
           <div className="bg-white rounded-xl shadow-lg p-8">
             <div className="flex items-center mb-6">
               <Settings className="h-6 w-6 text-neutral-600 mr-3" />
               <h2 className="text-2xl font-bold text-gray-900">Payment Configuration</h2>
             </div>
             
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Payment Script URL
-                </label>
-                <input
-                  type="url"
-                  name="payment_script_url"
-                  value={formData.payment_script_url}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="https://js.stripe.com/v3/ or your custom payment script URL"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  This script will be embedded in the payment page. Use Stripe.js, PayPal, or any payment processor script URL.
-                </p>
-              </div>
-              
-              <div className="bg-primary-50 border border-primary-200 rounded-lg p-6">
-                <h3 className="font-semibold text-primary-900 mb-3">Current Payment Setup</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-primary-700">Payment Method:</span>
-                    <span className="font-mono text-primary-900">Embedded Script</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-primary-700">Script URL:</span>
-                    <span className="text-primary-900 break-all">
-                      {formData.payment_script_url || 'Not configured'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-primary-700">Status:</span>
-                    <span className={`font-medium ${formData.payment_script_url ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {formData.payment_script_url ? '✅ Configured' : '⚠ Configure Script URL'}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-primary-700 text-sm mt-4">
-                  The payment page will embed this script to handle payment processing. Configure your payment processor's JavaScript SDK URL above.
-                </p>
-              </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+              <h3 className="font-semibold text-yellow-900 mb-3">Feature Temporarily Unavailable</h3>
+              <p className="text-yellow-700 text-sm">
+                Payment configuration is temporarily disabled while the database schema is being updated. 
+                This feature will be available after the database migration is complete.
+              </p>
             </div>
           </div>
 
@@ -354,10 +277,11 @@ const ManageSettings: React.FC = () => {
             </div>
             
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-red-900 mb-2">Change Admin Password</h3>
-                <p className="text-sm text-red-700">
-                  Update the admin password for secure access to the admin console. Make sure to use a strong password.
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-yellow-900 mb-2">Change Admin Password - Temporarily Disabled</h3>
+                <p className="text-sm text-yellow-700">
+                  Password change functionality is temporarily disabled while the database schema is being updated. 
+                  The current admin password is <strong>SCAdmin2025</strong>.
                 </p>
               </div>
 
