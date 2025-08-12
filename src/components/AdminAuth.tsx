@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { DEFAULT_ADMIN_PASSWORD } from '../lib/auth-utils';
 
 interface AdminAuthProps {
@@ -37,11 +38,22 @@ const AdminAuth: React.FC<AdminAuthProps> = ({ children }) => {
 
   const ensureAdminPasswordExists = async () => {
     try {
-      // For now, we'll just use the default password since the database 
-      // might not have the admin_password_hash column yet
-      console.log('Admin authentication initialized with default password');
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('admin_password_hash')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.log('Database columns may not exist yet, using temporary password');
+        return;
+      }
+
+      // If no admin password is set in database, keep using temporary password
+      if (!data?.admin_password_hash) {
+        console.log('Admin authentication using temporary password until password is set');
+      }
     } catch (error) {
-      console.error('Error ensuring admin password exists:', error);
+      console.log('Using temporary password until database is updated');
     }
   };
 
@@ -51,19 +63,47 @@ const AdminAuth: React.FC<AdminAuthProps> = ({ children }) => {
     setError('');
 
     try {
-      // For now, use the hardcoded password until database is updated
+      // Try to get password from database first
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('admin_password_hash')
+        .single();
+
+      // If database has a password hash, verify against it
+      if (!error && data?.admin_password_hash) {
+        const { verifyPassword } = await import('../lib/auth-utils');
+        const isValid = await verifyPassword(passcode, data.admin_password_hash);
+        
+        if (isValid) {
+          setIsAuthenticated(true);
+          localStorage.setItem('sc_admin_auth', 'true');
+          setError('');
+        } else {
+          setError('Invalid passcode. Please try again.');
+          setPasscode('');
+        }
+      } else {
+        // Fallback to temporary password if no database password is set
+        if (passcode === DEFAULT_ADMIN_PASSWORD) {
+          setIsAuthenticated(true);
+          localStorage.setItem('sc_admin_auth', 'true');
+          setError('');
+        } else {
+          setError('Invalid passcode. Please try again.');
+          setPasscode('');
+        }
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      // Fallback to temporary password on any error
       if (passcode === DEFAULT_ADMIN_PASSWORD) {
         setIsAuthenticated(true);
         localStorage.setItem('sc_admin_auth', 'true');
         setError('');
       } else {
-        setError('Invalid passcode. Please try again.');
+        setError('Authentication failed. Please try again.');
         setPasscode('');
       }
-    } catch (error) {
-      console.error('Authentication error:', error);
-      setError('Authentication failed. Please try again.');
-      setPasscode('');
     } finally {
       setLoading(false);
     }

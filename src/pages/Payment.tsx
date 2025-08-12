@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { CreditCard, User, DollarSign, Info, CheckCircle } from 'lucide-react';
 
 const Payment: React.FC = () => {
@@ -14,13 +15,51 @@ const Payment: React.FC = () => {
 
   const fetchSiteSettings = async () => {
     try {
-      // Temporarily disable payment script functionality
-      setSiteSettings({ payment_script_url: null });
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('*')
+        .single();
+      
+      if (error) {
+        console.error('Error fetching site settings:', error);
+        setSiteSettings({ payment_script_url: null });
+        return;
+      }
+      
+      setSiteSettings(data);
     } catch (error) {
       console.error('Failed to fetch site settings:', error);
+      setSiteSettings({ payment_script_url: null });
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadPaymentScript = () => {
+    if (!siteSettings?.payment_script_url) {
+      alert('Payment script URL not configured. Please contact administrator.');
+      return;
+    }
+
+    // Remove existing payment script if any
+    const existingScript = document.querySelector('script[data-payment-script]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    // Load the payment script
+    const script = document.createElement('script');
+    script.src = siteSettings.payment_script_url;
+    script.setAttribute('data-payment-script', 'true');
+    script.async = true;
+    script.onload = () => {
+      setShowPaymentForm(true);
+    };
+    script.onerror = () => {
+      alert('Failed to load payment script. Please try again or contact support.');
+    };
+    
+    document.head.appendChild(script);
   };
 
 
@@ -153,17 +192,24 @@ const Payment: React.FC = () => {
                     </div>
 
                     {/* Payment Script Status */}
-                    <div className="p-4 rounded-lg bg-yellow-50">
+                    <div className={`p-4 rounded-lg ${siteSettings?.payment_script_url ? 'bg-green-50' : 'bg-yellow-50'}`}>
                       <div className="flex items-start">
-                        <Info className="h-5 w-5 mr-3 mt-0.5 text-yellow-600" />
+                        <Info className={`h-5 w-5 mr-3 mt-0.5 ${siteSettings?.payment_script_url ? 'text-green-600' : 'text-yellow-600'}`} />
                         <div>
-                          <h3 className="text-sm font-medium mb-1 text-yellow-900">
-                            Payment System Temporarily Unavailable
+                          <h3 className={`text-sm font-medium mb-1 ${siteSettings?.payment_script_url ? 'text-green-900' : 'text-yellow-900'}`}>
+                            {siteSettings?.payment_script_url ? 'Payment System Ready' : 'Payment Configuration Required'}
                           </h3>
-                          <p className="text-sm text-yellow-700">
-                            Payment functionality is temporarily disabled while the database schema is being updated. 
-                            Please contact the administrator for payment assistance.
+                          <p className={`text-sm ${siteSettings?.payment_script_url ? 'text-green-700' : 'text-yellow-700'}`}>
+                            {siteSettings?.payment_script_url 
+                              ? 'Secure payment processing is configured and ready to use.'
+                              : 'Payment script URL needs to be configured by the administrator in the admin console.'
+                            }
                           </p>
+                          {!siteSettings?.payment_script_url && (
+                            <p className="text-sm text-yellow-600 mt-2">
+                              <strong>Note:</strong> The database schema must be updated first to enable payment configuration.
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -171,11 +217,16 @@ const Payment: React.FC = () => {
                     {/* Submit Button */}
                     <button
                       type="button"
-                      disabled={true}
-                      className="w-full py-4 px-6 rounded-lg text-lg font-semibold transition-colors duration-200 flex items-center justify-center bg-gray-400 text-gray-200 cursor-not-allowed"
+                      onClick={loadPaymentScript}
+                      disabled={!siteSettings?.payment_script_url}
+                      className={`w-full py-4 px-6 rounded-lg text-lg font-semibold transition-colors duration-200 flex items-center justify-center ${
+                        siteSettings?.payment_script_url
+                          ? 'bg-primary-600 text-white hover:bg-primary-700'
+                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      }`}
                     >
                       <CreditCard className="h-6 w-6 mr-3" />
-                      Payment Temporarily Unavailable
+                      {siteSettings?.payment_script_url ? 'Continue to Payment' : 'Payment Configuration Required'}
                     </button>
                   </form>
                 </div>
