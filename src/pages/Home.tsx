@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Users, Award, Calendar, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import SignupTest from '../components/SignupTest';
 
 const Home: React.FC = () => {
   const [siteSettings, setSiteSettings] = useState<any>(null);
@@ -218,9 +217,6 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
-      {/* Development Test Component */}
-      {import.meta.env.DEV && <SignupTest />}
     </div>
   );
 };
