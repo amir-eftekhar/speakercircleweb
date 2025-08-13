@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { CreditCard, User, DollarSign, Info, CheckCircle } from 'lucide-react';
+import { CreditCard, Info, CheckCircle } from 'lucide-react';
 
 const Payment: React.FC = () => {
   const { user } = useAuth();
@@ -41,6 +41,13 @@ const Payment: React.FC = () => {
       return;
     }
 
+    // For Stripe Payment Links, redirect directly to the configured URL
+    if (siteSettings.payment_script_url.includes('stripe.com') || siteSettings.payment_script_url.includes('buy.stripe.com')) {
+      window.open(siteSettings.payment_script_url, '_blank');
+      return;
+    }
+
+    // For other payment processors, embed the script
     // Remove existing payment script if any
     const existingScript = document.querySelector('script[data-payment-script]');
     if (existingScript) {
@@ -60,6 +67,26 @@ const Payment: React.FC = () => {
     };
     
     document.head.appendChild(script);
+  };
+
+  const embedStripePaymentLink = () => {
+    if (!siteSettings?.payment_script_url) return null;
+
+    // If it's a Stripe Payment Link, embed it as an iframe
+    if (siteSettings.payment_script_url.includes('buy.stripe.com')) {
+      return (
+        <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden">
+          <iframe
+            src={siteSettings.payment_script_url}
+            className="w-full h-full"
+            title="Stripe Payment"
+            style={{ border: 'none' }}
+          />
+        </div>
+      );
+    }
+
+    return null;
   };
 
 
@@ -135,133 +162,87 @@ const Payment: React.FC = () => {
 
             {/* Payment Form */}
             <div className="lg:col-span-2">
-              {!showPaymentForm ? (
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                  <div className="text-center mb-8">
-                    <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CreditCard className="h-8 w-8 text-primary-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Setup</h2>
-                    <p className="text-gray-600">Secure payment for Speakers Circle programs</p>
+              <div className="bg-white rounded-xl shadow-lg p-8">
+                <div className="text-center mb-8">
+                  <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CreditCard className="h-8 w-8 text-primary-600" />
                   </div>
-
-                  <form className="space-y-6">
-                    {/* Student Selection */}
-                    <div>
-                      <label htmlFor="student" className="block text-sm font-medium text-gray-700 mb-2">
-                        Select Student
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <User className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <select
-                          id="student"
-                          className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                          required
-                        >
-                          <option value="">Select a student</option>
-                          {user.students && user.students.map((student) => (
-                            <option key={student.id} value={student.id}>
-                              {student.name} ({student.status})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Payment Amount */}
-                    <div>
-                      <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                        Payment Amount
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <DollarSign className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                          type="number"
-                          id="amount"
-                          className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                          placeholder="0.00"
-                          min="1"
-                          step="0.01"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    {/* Payment Script Status */}
-                    <div className={`p-4 rounded-lg ${siteSettings?.payment_script_url ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                      <div className="flex items-start">
-                        <Info className={`h-5 w-5 mr-3 mt-0.5 ${siteSettings?.payment_script_url ? 'text-green-600' : 'text-yellow-600'}`} />
-                        <div>
-                          <h3 className={`text-sm font-medium mb-1 ${siteSettings?.payment_script_url ? 'text-green-900' : 'text-yellow-900'}`}>
-                            {siteSettings?.payment_script_url ? 'Payment System Ready' : 'Payment Configuration Required'}
-                          </h3>
-                          <p className={`text-sm ${siteSettings?.payment_script_url ? 'text-green-700' : 'text-yellow-700'}`}>
-                            {siteSettings?.payment_script_url 
-                              ? 'Secure payment processing is configured and ready to use.'
-                              : 'Payment script URL needs to be configured by the administrator in the admin console.'
-                            }
-                          </p>
-                          {!siteSettings?.payment_script_url && (
-                            <p className="text-sm text-yellow-600 mt-2">
-                              <strong>Note:</strong> The database schema must be updated first to enable payment configuration.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <button
-                      type="button"
-                      onClick={loadPaymentScript}
-                      disabled={!siteSettings?.payment_script_url}
-                      className={`w-full py-4 px-6 rounded-lg text-lg font-semibold transition-colors duration-200 flex items-center justify-center ${
-                        siteSettings?.payment_script_url
-                          ? 'bg-primary-600 text-white hover:bg-primary-700'
-                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      }`}
-                    >
-                      <CreditCard className="h-6 w-6 mr-3" />
-                      {siteSettings?.payment_script_url ? 'Continue to Payment' : 'Payment Configuration Required'}
-                    </button>
-                  </form>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Secure Payment</h2>
+                  <p className="text-gray-600">Welcome {user.name}! Complete your payment below.</p>
                 </div>
-              ) : (
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Payment Processor Loaded</h3>
-                    <p className="text-gray-600 mb-6">
-                      The payment script has been loaded successfully. You can now proceed with secure payment processing.
+
+                {/* Payment Script Status */}
+                <div className={`p-4 rounded-lg mb-6 ${siteSettings?.payment_script_url ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                  <div className="flex items-start">
+                    <Info className={`h-5 w-5 mr-3 mt-0.5 ${siteSettings?.payment_script_url ? 'text-green-600' : 'text-yellow-600'}`} />
+                    <div>
+                      <h3 className={`text-sm font-medium mb-1 ${siteSettings?.payment_script_url ? 'text-green-900' : 'text-yellow-900'}`}>
+                        {siteSettings?.payment_script_url ? 'Payment System Ready' : 'Payment Configuration Required'}
+                      </h3>
+                      <p className={`text-sm ${siteSettings?.payment_script_url ? 'text-green-700' : 'text-yellow-700'}`}>
+                        {siteSettings?.payment_script_url 
+                          ? 'Secure payment processing is configured and ready to use.'
+                          : 'Payment script URL needs to be configured by the administrator in the admin console.'
+                        }
+                      </p>
+                      {!siteSettings?.payment_script_url && (
+                        <p className="text-sm text-yellow-600 mt-2">
+                          <strong>Note:</strong> The database schema must be updated first to enable payment configuration.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Embedded Payment Interface */}
+                {siteSettings?.payment_script_url ? (
+                  <div className="space-y-6">
+                    {/* Check if it's a Stripe Payment Link for embedding */}
+                    {embedStripePaymentLink() || (
+                      <div>
+                        {/* Payment Link Button */}
+                        <div className="text-center">
+                          <button
+                            onClick={loadPaymentScript}
+                            className="w-full py-4 px-6 rounded-lg text-lg font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors duration-200 flex items-center justify-center"
+                          >
+                            <CreditCard className="h-6 w-6 mr-3" />
+                            {siteSettings.payment_script_url.includes('stripe.com') || siteSettings.payment_script_url.includes('buy.stripe.com')
+                              ? 'Open Stripe Payment (New Tab)'
+                              : 'Load Payment Processor'
+                            }
+                          </button>
+                        </div>
+
+                        {/* Custom Payment Form Container for other processors */}
+                        {showPaymentForm && !siteSettings.payment_script_url.includes('stripe.com') && (
+                          <div className="mt-6">
+                            <div id="payment-form-container" className="min-h-[400px] p-6 border border-gray-300 rounded-lg">
+                              <div className="text-center">
+                                <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <p className="text-gray-600">
+                                  Payment processor interface will load here.
+                                </p>
+                                <p className="text-sm text-gray-500 mt-2">
+                                  Powered by: {siteSettings.payment_script_url}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <CreditCard className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Payment Not Available</h3>
+                    <p className="text-gray-600">
+                      Payment processing needs to be configured by the administrator.
                     </p>
                   </div>
-
-                  {/* Payment Form Container */}
-                  <div id="payment-form-container" className="min-h-[400px] p-6 border-2 border-dashed border-gray-300 rounded-lg">
-                    <div className="text-center">
-                      <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">
-                        Payment form will be rendered here by the loaded payment script.
-                      </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Integrated with: {siteSettings?.payment_script_url}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex justify-center">
-                    <button
-                      onClick={() => setShowPaymentForm(false)}
-                      className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      Back to Payment Setup
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

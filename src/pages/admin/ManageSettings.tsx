@@ -341,10 +341,11 @@ const ManageSettings: React.FC = () => {
                   value={formData.payment_script_url}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="https://js.stripe.com/v3/ or your custom payment script URL"
+                  placeholder="https://buy.stripe.com/xxx or https://js.stripe.com/v3/"
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  This script will be embedded in the payment page. Use Stripe.js, PayPal, or any payment processor script URL.
+                  <strong>For Stripe Payment Links:</strong> Use the direct Payment Link URL (https://buy.stripe.com/xxx) - it will be embedded or opened in a new tab.<br/>
+                  <strong>For Stripe.js or other processors:</strong> Use the script URL (https://js.stripe.com/v3/ or similar).
                 </p>
               </div>
               
@@ -353,7 +354,11 @@ const ManageSettings: React.FC = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-primary-700">Payment Method:</span>
-                    <span className="font-mono text-primary-900">Embedded Script</span>
+                    <span className="font-mono text-primary-900">
+                      {formData.payment_script_url?.includes('buy.stripe.com') 
+                        ? 'Stripe Payment Link' 
+                        : 'Custom Script/API'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-primary-700">Script URL:</span>
@@ -369,15 +374,29 @@ const ManageSettings: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-primary-700 text-sm mt-4">
-                  The payment page will embed this script to handle payment processing. Configure your payment processor's JavaScript SDK URL above.
+                  {formData.payment_script_url?.includes('buy.stripe.com')
+                    ? 'Stripe Payment Links will be embedded directly in the payment page or opened in a new tab for seamless checkout.'
+                    : 'The payment page will load this script to handle payment processing. Use your payment processor\'s JavaScript SDK URL.'
+                  }
                 </p>
-                {!formData.payment_script_url && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    <p className="text-sm text-yellow-700">
-                      <strong>Note:</strong> Make sure to update the database schema first by adding the required columns.
-                    </p>
+                <div className="mt-4 space-y-3">
+                  {!formData.payment_script_url && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="text-sm text-yellow-700">
+                        <strong>Note:</strong> Make sure to update the database schema first by adding the required columns.
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Examples:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li><strong>Stripe Payment Link:</strong> https://buy.stripe.com/test_xxx</li>
+                      <li><strong>Stripe.js SDK:</strong> https://js.stripe.com/v3/</li>
+                      <li><strong>PayPal SDK:</strong> https://www.paypal.com/sdk/js?client-id=xxx</li>
+                    </ul>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
